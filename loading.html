@@ -172,46 +172,16 @@
                      let response;
                      let result;
                      
-                     // Try the specific sessionId first
-                     response = await fetch(`/api/store-ideas?sessionId=${sessionId}`);
-                     console.log('Specific session poll response status:', response.status);
+                     // Try the simple storage endpoint
+                     response = await fetch('/api/simple-store');
+                     console.log('Simple store poll response status:', response.status);
                      
                      if (response.ok) {
                          result = await response.json();
-                         console.log('Specific session poll result:', result);
+                         console.log('Simple store poll result:', result);
                          
                          if (result.success && result.data) {
-                             console.log('Ideas received from specific session:', result.data);
-                             
-                             // Store in localStorage for answer page
-                             localStorage.setItem('webhookResponse', JSON.stringify({
-                                 success: true,
-                                 ideas: result.data.ideas,
-                                 timestamp: result.data.timestamp
-                             }));
-                             
-                             clearInterval(pollInterval);
-                             completeLoading(true);
-                             
-                             // Auto-redirect to answer page after 2 seconds
-                             setTimeout(() => {
-                                 window.location.href = 'answer.html';
-                             }, 2000);
-                             return;
-                         }
-                     }
-                     
-                     // If specific session failed, try latest ideas endpoint
-                     console.log('Trying latest ideas endpoint...');
-                     response = await fetch('/api/latest-ideas');
-                     console.log('Latest ideas poll response status:', response.status);
-                     
-                     if (response.ok) {
-                         result = await response.json();
-                         console.log('Latest ideas poll result:', result);
-                         
-                         if (result.success && result.data) {
-                             console.log('Ideas received from latest endpoint:', result.data);
+                             console.log('Ideas received from simple store:', result.data);
                              
                              // Store in localStorage for answer page
                              localStorage.setItem('webhookResponse', JSON.stringify({

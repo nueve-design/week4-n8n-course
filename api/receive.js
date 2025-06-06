@@ -28,23 +28,30 @@ module.exports = async function handler(req, res) {
       console.log('Using sessionId:', sessionId);
       console.log('Full request body:', JSON.stringify(data, null, 2));
       
-      // Store the ideas directly in memory (since we can't easily call our own API)
-      // Import the storage from store-ideas
-      if (!global.ideaStorage) {
-        global.ideaStorage = new Map();
-      }
-      
-      if (sessionId) {
-        const ideaData = {
-          ideas: ideasContent,
-          timestamp: timestamp,
-          status: 'completed'
-        };
+      // Store the ideas using our simple storage approach
+      try {
+        const storeUrl = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}/api/simple-store`;
+        console.log('Storing to URL:', storeUrl);
         
-        global.ideaStorage.set(sessionId, ideaData);
-        console.log(`Ideas stored for session: ${sessionId}`, ideaData);
-      } else {
-        console.log('No sessionId provided in request - cannot store ideas');
+        const storeResponse = await fetch(storeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ideas: ideasContent,
+            timestamp: timestamp,
+            sessionId: sessionId
+          })
+        });
+        
+        if (storeResponse.ok) {
+          console.log('Ideas stored successfully in simple-store');
+        } else {
+          console.error('Failed to store in simple-store:', storeResponse.status);
+        }
+      } catch (storeError) {
+        console.error('Error calling simple-store:', storeError);
       }
       
       // Create a response object
