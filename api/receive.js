@@ -17,26 +17,34 @@ export default async function handler(req, res) {
       // Extract the ideas/message from n8n
       const ideasContent = data.message || 'Ideas generated successfully!';
       const timestamp = data.timestamp || new Date().toISOString();
-      const sessionId = data.sessionId; // This should come from n8n workflow
+      let sessionId = data.sessionId; // This should come from n8n workflow
       
-      // Store the ideas using the storage API
+      // Fallback: if no sessionId, create one from timestamp or use 'latest'
+      if (!sessionId) {
+        sessionId = 'latest_' + timestamp.replace(/[^\d]/g, '').slice(-10);
+        console.log('No sessionId provided, using fallback:', sessionId);
+      }
+      
+      console.log('Using sessionId:', sessionId);
+      console.log('Full request body:', JSON.stringify(data, null, 2));
+      
+      // Store the ideas directly in memory (since we can't easily call our own API)
+      // Import the storage from store-ideas
+      if (!global.ideaStorage) {
+        global.ideaStorage = new Map();
+      }
+      
       if (sessionId) {
-        try {
-          await fetch(`${req.headers.host}/api/store-ideas`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sessionId: sessionId,
-              ideas: ideasContent,
-              timestamp: timestamp
-            })
-          });
-          console.log(`Ideas stored for session: ${sessionId}`);
-        } catch (storeError) {
-          console.error('Error storing ideas:', storeError);
-        }
+        const ideaData = {
+          ideas: ideasContent,
+          timestamp: timestamp,
+          status: 'completed'
+        };
+        
+        global.ideaStorage.set(sessionId, ideaData);
+        console.log(`Ideas stored for session: ${sessionId}`, ideaData);
+      } else {
+        console.log('No sessionId provided in request - cannot store ideas');
       }
       
       // Create a response object

@@ -134,51 +134,95 @@
                 }
             }
             
-            if (!sessionId) {
-                completeLoading(false, 'Session not found - please try again');
-                return;
-            }
+                         if (!sessionId) {
+                 console.log('No sessionId found, trying fallback approaches...');
+                 
+                 // Try to create a fallback sessionId based on current time
+                 const currentTime = new Date().toISOString();
+                 sessionId = 'latest_' + currentTime.replace(/[^\d]/g, '').slice(-10);
+                 console.log('Using fallback sessionId:', sessionId);
+                 
+                 // Also try to poll for any 'latest' entries
+                 // We'll implement multiple polling strategies
+             }
             
-            console.log(`Polling for ideas with session ID: ${sessionId}`);
-            
-            const pollInterval = setInterval(async () => {
-                try {
-                    // Check our storage API for the ideas
-                    const response = await fetch(`/api/store-ideas?sessionId=${sessionId}`);
-                    
-                    if (response.ok) {
-                        const result = await response.json();
-                        
-                        if (result.success && result.data) {
-                            console.log('Ideas received:', result.data);
-                            
-                            // Store in localStorage for answer page
-                            localStorage.setItem('webhookResponse', JSON.stringify({
-                                success: true,
-                                ideas: result.data.ideas,
-                                timestamp: result.data.timestamp
-                            }));
-                            
-                            clearInterval(pollInterval);
-                            completeLoading(true);
-                            
-                            // Auto-redirect to answer page after 2 seconds
-                            setTimeout(() => {
-                                window.location.href = 'answer.html';
-                            }, 2000);
-                            return;
-                        }
-                    } else if (response.status === 404) {
-                        // Ideas not yet available, continue polling
-                        console.log('Ideas not ready yet, continuing to poll...');
-                    } else {
-                        console.error('Error response:', response.status);
-                    }
-                    
-                } catch (error) {
-                    console.error('Error polling for data:', error);
-                }
-            }, 3000);
+                         console.log(`Polling for ideas with session ID: ${sessionId}`);
+             let pollCount = 0;
+             
+             const pollInterval = setInterval(async () => {
+                 try {
+                     pollCount++;
+                     console.log(`Poll attempt ${pollCount} for session: ${sessionId}`);
+                     
+                     let response;
+                     let result;
+                     
+                     // Try the specific sessionId first
+                     response = await fetch(`/api/store-ideas?sessionId=${sessionId}`);
+                     console.log('Specific session poll response status:', response.status);
+                     
+                     if (response.ok) {
+                         result = await response.json();
+                         console.log('Specific session poll result:', result);
+                         
+                         if (result.success && result.data) {
+                             console.log('Ideas received from specific session:', result.data);
+                             
+                             // Store in localStorage for answer page
+                             localStorage.setItem('webhookResponse', JSON.stringify({
+                                 success: true,
+                                 ideas: result.data.ideas,
+                                 timestamp: result.data.timestamp
+                             }));
+                             
+                             clearInterval(pollInterval);
+                             completeLoading(true);
+                             
+                             // Auto-redirect to answer page after 2 seconds
+                             setTimeout(() => {
+                                 window.location.href = 'answer.html';
+                             }, 2000);
+                             return;
+                         }
+                     }
+                     
+                     // If specific session failed, try latest ideas endpoint
+                     console.log('Trying latest ideas endpoint...');
+                     response = await fetch('/api/latest-ideas');
+                     console.log('Latest ideas poll response status:', response.status);
+                     
+                     if (response.ok) {
+                         result = await response.json();
+                         console.log('Latest ideas poll result:', result);
+                         
+                         if (result.success && result.data) {
+                             console.log('Ideas received from latest endpoint:', result.data);
+                             
+                             // Store in localStorage for answer page
+                             localStorage.setItem('webhookResponse', JSON.stringify({
+                                 success: true,
+                                 ideas: result.data.ideas,
+                                 timestamp: result.data.timestamp
+                             }));
+                             
+                             clearInterval(pollInterval);
+                             completeLoading(true);
+                             
+                             // Auto-redirect to answer page after 2 seconds
+                             setTimeout(() => {
+                                 window.location.href = 'answer.html';
+                             }, 2000);
+                             return;
+                         }
+                     }
+                     
+                     // If both failed, continue polling
+                     console.log('Ideas not ready yet, continuing to poll...');
+                     
+                 } catch (error) {
+                     console.error('Error polling for data:', error);
+                 }
+             }, 3000);
             
             // Stop polling after 60 seconds
             setTimeout(() => {

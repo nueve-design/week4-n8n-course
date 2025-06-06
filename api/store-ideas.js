@@ -1,6 +1,10 @@
 // Simple in-memory storage for demo purposes
 // In production, you'd use a real database
-let ideaStorage = new Map();
+// Use global storage to share between API endpoints
+if (!global.ideaStorage) {
+  global.ideaStorage = new Map();
+}
+let ideaStorage = global.ideaStorage;
 
 export default async function handler(req, res) {
   // Enable CORS
