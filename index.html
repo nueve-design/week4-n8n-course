@@ -61,23 +61,30 @@
             const ideaDescription = document.getElementById('ideaDescription').value;
             const targetGroup = document.getElementById('targetGroup').value;
             
-            // Store form data in localStorage
+            // Generate a unique session ID
+            const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Store form data in localStorage with session ID
             localStorage.setItem('ideaData', JSON.stringify({
                 ideaDescription: ideaDescription,
                 targetGroup: targetGroup,
+                sessionId: sessionId,
                 timestamp: new Date().toISOString()
             }));
             
+            // Clear any previous webhook response
+            localStorage.removeItem('webhookResponse');
+            
             // Send data to webhook
-            sendToWebhook(ideaDescription, targetGroup);
+            sendToWebhook(ideaDescription, targetGroup, sessionId);
             
             // Redirect to loading page
             window.location.href = 'loading.html';
         });
 
         // Function to send data to webhook
-        async function sendToWebhook(ideaDescription, targetGroup) {
-            console.log('Sending data to webhook:', { ideaDescription, targetGroup });
+        async function sendToWebhook(ideaDescription, targetGroup, sessionId) {
+            console.log('Sending data to webhook:', { ideaDescription, targetGroup, sessionId });
             
             try {
                 // Send data to n8n webhook
@@ -91,43 +98,25 @@
                     body: JSON.stringify({
                         ideaDescription: ideaDescription,
                         targetGroup: targetGroup,
+                        sessionId: sessionId,
                         timestamp: new Date().toISOString()
                     })
                 });
 
-                console.log('Response status:', response.status);
+                console.log('Webhook response status:', response.status);
                 
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('Response data:', result);
-                    
-                    // Store response in localStorage
-                    localStorage.setItem('webhookResponse', JSON.stringify(result));
-                    
-                    // Redirect to answer page
-                    window.location.href = 'answer.html';
-                } else {
-                    const errorText = await response.text();
-                    console.error('Error response:', errorText);
-                    
-                    // Store error in localStorage
-                    localStorage.setItem('webhookResponse', JSON.stringify({
-                        error: true,
-                        message: `Server responded with ${response.status}: ${errorText}`
-                    }));
-                    
-                    window.location.href = 'answer.html';
-                }
+                // Don't process the response here anymore
+                // The loading page will wait for n8n to send data to our API endpoint
+                console.log('Initial webhook sent successfully, waiting for n8n to process...');
+                
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error sending to webhook:', error);
                 
-                // Store error in localStorage
+                // Store error in localStorage for loading page to handle
                 localStorage.setItem('webhookResponse', JSON.stringify({
                     error: true,
-                    message: `Failed to generate ideas: ${error.message}`
+                    message: `Failed to send request: ${error.message}`
                 }));
-                
-                window.location.href = 'answer.html';
             }
         }
     </script>

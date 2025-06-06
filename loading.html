@@ -3,51 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ładowanie - Idea Generator</title>
+    <title>Generating Ideas... - Idea Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Ładowanie...</h2>
-            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
-            <p class="text-gray-600 text-lg">Przetwarzamy Twój pomysł...</p>
-            <p class="text-gray-500 text-sm mt-2">Proszę czekać, to może potrwać chwilę.</p>
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <div id="loadingState" class="text-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-8">Generating Ideas...</h1>
+                
+                <!-- Loading spinner -->
+                <div class="flex justify-center mb-6">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+                
+                <p class="text-gray-600 mb-4">Please wait while we generate creative ideas for you.</p>
+                
+                <!-- Progress indicator -->
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-6">
+                    <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+                
+                <p id="statusMessage" class="text-sm text-gray-500">Processing your request...</p>
+            </div>
+            
+            <!-- Success/Error messages will be shown here -->
+            <div id="resultContainer" class="hidden">
+                <div id="successMessage" class="hidden text-center">
+                    <h2 class="text-2xl font-bold text-green-600 mb-4">✓ Ideas Generated!</h2>
+                    <p class="text-gray-600 mb-4">Your ideas have been processed successfully.</p>
+                    <button onclick="window.location.href='answer.html'" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-200">
+                        View Ideas
+                    </button>
+                </div>
+                
+                <div id="errorMessage" class="hidden text-center">
+                    <h2 class="text-2xl font-bold text-red-600 mb-4">⚠ Processing Error</h2>
+                    <p id="errorText" class="text-gray-600 mb-4">There was an issue processing your request.</p>
+                    <button onclick="window.location.href='index.html'" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">
+                        Try Again
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Check if we have form data
-        const ideaData = localStorage.getItem('ideaData');
-        if (!ideaData) {
-            // If no data, redirect back to main page
-            window.location.href = 'index.html';
+        let progressInterval;
+        let statusMessages = [
+            "Processing your request...",
+            "Analyzing your idea...",
+            "Identifying target audience...",
+            "Generating creative solutions...",
+            "Finalizing recommendations..."
+        ];
+        let currentMessageIndex = 0;
+
+        // Start loading animation
+        function startLoadingAnimation() {
+            let progress = 0;
+            progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90; // Don't complete until we get real data
+                
+                document.getElementById('progressBar').style.width = progress + '%';
+                
+                // Update status message
+                if (Math.random() > 0.7 && currentMessageIndex < statusMessages.length - 1) {
+                    currentMessageIndex++;
+                    document.getElementById('statusMessage').textContent = statusMessages[currentMessageIndex];
+                }
+            }, 1000);
         }
 
-        // Poll for webhook response
-        let pollCount = 0;
-        const maxPolls = 60; // Wait max 2 minutes (60 * 2 seconds)
-        
-        const pollForResponse = setInterval(() => {
-            const response = localStorage.getItem('webhookResponse');
+        // Complete loading animation
+        function completeLoading(success = true, message = '') {
+            clearInterval(progressInterval);
+            document.getElementById('progressBar').style.width = '100%';
             
-            if (response) {
-                // Response received, redirect to answer page
-                clearInterval(pollForResponse);
-                window.location.href = 'answer.html';
+            setTimeout(() => {
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('resultContainer').classList.remove('hidden');
+                
+                if (success) {
+                    document.getElementById('successMessage').classList.remove('hidden');
+                } else {
+                    document.getElementById('errorMessage').classList.remove('hidden');
+                    if (message) {
+                        document.getElementById('errorText').textContent = message;
+                    }
+                }
+            }, 500);
+        }
+
+        // Check for existing data in localStorage
+        function checkForStoredData() {
+            const webhookResponse = localStorage.getItem('webhookResponse');
+            
+            if (webhookResponse) {
+                try {
+                    const response = JSON.parse(webhookResponse);
+                    
+                    if (response.error) {
+                        completeLoading(false, response.message);
+                    } else {
+                        completeLoading(true);
+                        // Auto-redirect to answer page after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = 'answer.html';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error('Error parsing stored response:', e);
+                    completeLoading(false, 'Error processing stored data');
+                }
+            }
+        }
+
+        // Poll for data from n8n API endpoint
+        function pollForData() {
+            const ideaData = localStorage.getItem('ideaData');
+            let sessionId = null;
+            
+            if (ideaData) {
+                try {
+                    const parsedData = JSON.parse(ideaData);
+                    sessionId = parsedData.sessionId;
+                } catch (e) {
+                    console.error('Error parsing idea data:', e);
+                }
             }
             
-            pollCount++;
-            if (pollCount >= maxPolls) {
-                // Timeout - store timeout error and redirect
-                clearInterval(pollForResponse);
-                localStorage.setItem('webhookResponse', JSON.stringify({
-                    error: true,
-                    message: 'Timeout: Nie otrzymano odpowiedzi w oczekiwanym czasie.'
-                }));
-                window.location.href = 'answer.html';
+            if (!sessionId) {
+                completeLoading(false, 'Session not found - please try again');
+                return;
             }
-        }, 2000); // Check every 2 seconds
+            
+            console.log(`Polling for ideas with session ID: ${sessionId}`);
+            
+            const pollInterval = setInterval(async () => {
+                try {
+                    // Check our storage API for the ideas
+                    const response = await fetch(`/api/store-ideas?sessionId=${sessionId}`);
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        if (result.success && result.data) {
+                            console.log('Ideas received:', result.data);
+                            
+                            // Store in localStorage for answer page
+                            localStorage.setItem('webhookResponse', JSON.stringify({
+                                success: true,
+                                ideas: result.data.ideas,
+                                timestamp: result.data.timestamp
+                            }));
+                            
+                            clearInterval(pollInterval);
+                            completeLoading(true);
+                            
+                            // Auto-redirect to answer page after 2 seconds
+                            setTimeout(() => {
+                                window.location.href = 'answer.html';
+                            }, 2000);
+                            return;
+                        }
+                    } else if (response.status === 404) {
+                        // Ideas not yet available, continue polling
+                        console.log('Ideas not ready yet, continuing to poll...');
+                    } else {
+                        console.error('Error response:', response.status);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error polling for data:', error);
+                }
+            }, 3000);
+            
+            // Stop polling after 60 seconds
+            setTimeout(() => {
+                clearInterval(pollInterval);
+                if (!document.getElementById('resultContainer').classList.contains('hidden')) {
+                    return; // Already completed
+                }
+                completeLoading(false, 'Request timeout - please try again');
+            }, 60000);
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            startLoadingAnimation();
+            
+            // Check immediately for any stored data
+            setTimeout(() => {
+                checkForStoredData();
+            }, 1000);
+            
+            // Start polling for data
+            pollForData();
+        });
+
+        // Listen for messages from n8n (if using postMessage approach)
+        window.addEventListener('message', (event) => {
+            // Verify origin for security
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+            
+            if (event.data && event.data.type === 'n8n-response') {
+                console.log('Received data from n8n:', event.data);
+                
+                // Store the data
+                localStorage.setItem('webhookResponse', JSON.stringify(event.data.payload));
+                
+                if (event.data.payload.error) {
+                    completeLoading(false, event.data.payload.message);
+                } else {
+                    completeLoading(true);
+                    setTimeout(() => {
+                        window.location.href = 'answer.html';
+                    }, 2000);
+                }
+            }
+        });
     </script>
 </body>
 </html> 
