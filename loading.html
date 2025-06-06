@@ -149,6 +149,21 @@
                          console.log(`Polling for ideas with session ID: ${sessionId}`);
              let pollCount = 0;
              
+             // First test if API is working at all
+             async function testAPI() {
+                 try {
+                     const debugResponse = await fetch('/api/debug');
+                     console.log('Debug endpoint test:', debugResponse.status);
+                     if (debugResponse.ok) {
+                         const debugData = await debugResponse.json();
+                         console.log('Debug data:', debugData);
+                     }
+                 } catch (e) {
+                     console.error('Debug endpoint failed:', e);
+                 }
+             }
+             testAPI();
+             
              const pollInterval = setInterval(async () => {
                  try {
                      pollCount++;
