@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ocena Pomysłu - Idea Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Ocena Twojego Pomysłu</h2>
+            
+            <!-- Results will be populated here -->
+            <div id="results" class="space-y-4 mb-8"></div>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button 
+                    id="backButton" 
+                    class="bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                >
+                    Wygeneruj Inny Pomysł
+                </button>
+                <button 
+                    id="newIdeaButton" 
+                    class="bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-200"
+                >
+                    Nowy Pomysł
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+        const backButton = document.getElementById('backButton');
+        const newIdeaButton = document.getElementById('newIdeaButton');
+
+        // Load and display results
+        function loadResults() {
+            const response = localStorage.getItem('webhookResponse');
+            
+            if (!response) {
+                // No response, redirect back to main page
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(response);
+                
+                if (data.error) {
+                    // Display error message
+                    resultsDiv.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 p-6 rounded-lg">
+                            <h3 class="text-lg font-semibold text-red-800 mb-2">Wystąpił błąd</h3>
+                            <p class="text-red-700">${data.message}</p>
+                        </div>
+                    `;
+                } else {
+                    // Display successful response
+                    displayResults(data);
+                }
+            } catch (error) {
+                console.error('Error parsing response:', error);
+                resultsDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-red-800 mb-2">Błąd</h3>
+                        <p class="text-red-700">Nie udało się przetworzyć odpowiedzi.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Display results from webhook
+        function displayResults(data) {
+            resultsDiv.innerHTML = '';
+            
+            if (typeof data === 'object' && data !== null) {
+                // If it's an object, display it nicely
+                Object.keys(data).forEach(key => {
+                    const value = data[key];
+                    const div = document.createElement('div');
+                    div.className = 'bg-gray-50 p-6 rounded-lg border border-gray-200';
+                    
+                    // Format key name
+                    const formattedKey = key.replace(/([A-Z])/g, ' $1')
+                                          .replace(/^./, str => str.toUpperCase())
+                                          .trim();
+                    
+                    div.innerHTML = `
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">${formattedKey}</h3>
+                        <div class="text-gray-700 leading-relaxed">
+                            ${Array.isArray(value) ? 
+                                value.map(item => `<p class="mb-2">• ${item}</p>`).join('') : 
+                                `<p>${value}</p>`
+                            }
+                        </div>
+                    `;
+                    resultsDiv.appendChild(div);
+                });
+            } else {
+                // If it's a string or other type, display as is
+                const div = document.createElement('div');
+                div.className = 'bg-gray-50 p-6 rounded-lg border border-gray-200';
+                div.innerHTML = `
+                    <div class="text-gray-800 leading-relaxed whitespace-pre-wrap">${data}</div>
+                `;
+                resultsDiv.appendChild(div);
+            }
+        }
+
+        // Generate another idea with same data
+        backButton.addEventListener('click', async () => {
+            const ideaData = localStorage.getItem('ideaData');
+            
+            if (ideaData) {
+                const data = JSON.parse(ideaData);
+                
+                // Clear previous response
+                localStorage.removeItem('webhookResponse');
+                
+                // Send data to webhook again
+                await sendToWebhook(data.ideaDescription, data.targetGroup);
+                
+                // Redirect to loading page
+                window.location.href = 'loading.html';
+            } else {
+                // No data, go to main page
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Start completely new idea
+        newIdeaButton.addEventListener('click', () => {
+            // Clear all stored data
+            localStorage.removeItem('ideaData');
+            localStorage.removeItem('webhookResponse');
+            
+            // Redirect to main page
+            window.location.href = 'index.html';
+        });
+
+        // Function to send data to webhook
+        async function sendToWebhook(ideaDescription, targetGroup) {
+            console.log('Sending data to webhook:', { ideaDescription, targetGroup });
+            
+            try {
+                const response = await fetch('https://nueve.app.n8n.cloud/webhook-test/ff809898-6206-4768-89ba-3f2fdc6b4e51', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    mode: 'cors',
+                    body: JSON.stringify({
+                        ideaDescription: ideaDescription,
+                        targetGroup: targetGroup,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                console.log('Response status:', response.status);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Response data:', result);
+                    localStorage.setItem('webhookResponse', JSON.stringify(result));
+                } else {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    localStorage.setItem('webhookResponse', JSON.stringify({
+                        error: true,
+                        message: `Server responded with ${response.status}: ${errorText}`
+                    }));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                localStorage.setItem('webhookResponse', JSON.stringify({
+                    error: true,
+                    message: `Failed to generate ideas: ${error.message}`
+                }));
+            }
+        }
+
+        // Load results when page loads
+        window.addEventListener('load', loadResults);
+    </script>
+</body>
+</html> 

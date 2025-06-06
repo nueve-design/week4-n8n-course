@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ładowanie - Idea Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Ładowanie...</h2>
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
+            <p class="text-gray-600 text-lg">Przetwarzamy Twój pomysł...</p>
+            <p class="text-gray-500 text-sm mt-2">Proszę czekać, to może potrwać chwilę.</p>
+        </div>
+    </div>
+
+    <script>
+        // Check if we have form data
+        const ideaData = localStorage.getItem('ideaData');
+        if (!ideaData) {
+            // If no data, redirect back to main page
+            window.location.href = 'index.html';
+        }
+
+        // Poll for webhook response
+        let pollCount = 0;
+        const maxPolls = 60; // Wait max 2 minutes (60 * 2 seconds)
+        
+        const pollForResponse = setInterval(() => {
+            const response = localStorage.getItem('webhookResponse');
+            
+            if (response) {
+                // Response received, redirect to answer page
+                clearInterval(pollForResponse);
+                window.location.href = 'answer.html';
+            }
+            
+            pollCount++;
+            if (pollCount >= maxPolls) {
+                // Timeout - store timeout error and redirect
+                clearInterval(pollForResponse);
+                localStorage.setItem('webhookResponse', JSON.stringify({
+                    error: true,
+                    message: 'Timeout: Nie otrzymano odpowiedzi w oczekiwanym czasie.'
+                }));
+                window.location.href = 'answer.html';
+            }
+        }, 2000); // Check every 2 seconds
+    </script>
+</body>
+</html> 
